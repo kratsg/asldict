@@ -19,7 +19,7 @@ while true do
   end
 
   response_doc = Nokogiri::HTML(response.body)
-  sign = response_doc.css('#topic').text[/\w+$/]
+  sign = response_doc.css('#topic').text.gsub!(/Viewing signs for topic /i,"")
   words.push({href: uri.to_s, text: sign})
-  p "%d: %s" % [$i, sign]
+  p "%d: %s" % [$i-1, sign]
 end

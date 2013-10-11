@@ -7,7 +7,7 @@ uris.map! do |page|
     response_doc = Nokogiri::HTML(response)
     response_doc.css('a[href]').map do |link|
       begin
-        {href: URI.join(page.to_s, link['href']).to_s, text: link.text.downcase}
+        {href: URI.join(page.to_s, link['href']).to_s, text: link.text.strip.downcase}
       rescue => e
         p link['href'].to_s, link.text.downcase
         raise e

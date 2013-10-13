@@ -25,6 +25,6 @@ open('wordsOutput.out', 'a') do |f|
     response_doc = Nokogiri::HTML(response.body)
     sign = response_doc.css('#topic').text.gsub!(/Viewing sign ##{$i-1} for /,"")
     youtubeURL = response_doc.css('object.view_sign embed').attribute('src').value
-    f.puts('%d,%s,%s}' % [$i, sign, youtubeURL])
+    f.puts('%d,%s,%s' % [$i, sign, youtubeURL])
   end
 end

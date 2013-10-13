@@ -1,25 +1,30 @@
 require 'net/http'
 require 'nokogiri'
 
-base_url = 'http://aslstem.cs.washington.edu/topics/signs/%d'
+base_url = 'http://aslstem.cs.washington.edu/signs/view/%d'
 
-words = []
-$i = 1
 $skipPage = []
-while true do
-  uri = URI(base_url % $i)
-  $i+=1
-  http = Net::HTTP.new(uri.host, uri.port)
-  response = http.request(Net::HTTP::Get.new(uri.request_uri))
+$i = 1
+open('wordsOutput.out', 'a') do |f|
+  while true do
+    uri = URI(base_url % $i)
+    $i+=1
+    http = Net::HTTP.new(uri.host, uri.port)
+    response = http.request(Net::HTTP::Get.new(uri.request_uri))
 
-  break if $skipPage.length > 100
-  unless response.code == "200" then
-    $skipPage.push({url: uri.to_s, code: response.code})
-    next
+    break if $skipPage.length > 100
+    unless response.code == "200" then
+      $skipPage.push({url: uri.to_s, code: response.code})
+      next
+    end
+
+    output = File.open("ASLStemForumData/%d.out" % ($1-1))
+    output << response.body
+    output.close
+
+    response_doc = Nokogiri::HTML(response.body)
+    sign = response_doc.css('#topic').text.gsub!(/Viewing sign ##{$i-1} for /,"")
+    youtubeURL = response_doc.css('object.view_sign embed').attribute('src').value
+    f.puts('%d,%s,%s}' % [$i, sign, youtubeURL])
   end
-
-  response_doc = Nokogiri::HTML(response.body)
-  sign = response_doc.css('#topic').text.gsub!(/Viewing signs for topic /i,"")
-  words.push({href: uri.to_s, text: sign})
-  p "%d: %s" % [$i-1, sign]
 end

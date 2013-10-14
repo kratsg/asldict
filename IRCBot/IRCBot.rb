@@ -19,16 +19,34 @@ bot = Cinch::Bot.new do
       :password => c.nick,
       :type     => :nickserv,
     }
+    @conn = nil
+    @asl_lookup_statement = nil
+    @info_lookup_statement = nil
+    @history_record_statement = nil
   end
 
   helpers do
+    def conn
+      p "executing db connection"
+      @conn ||= PG.connect(dbname: "kratsg")
+      prepare_statement
+      @conn
+    rescue PG::ConnectionBad
+      [false,"My brain is disconnected."]
+    end
+
+    def prepare_statement
+      @asl_lookup_statement ||= @conn.prepare("asl_lookup_statement","SELECT id, gloss, source, description, url FROM signs WHERE gloss=$1")
+      @info_lookup_statement ||= @conn.prepare("info_lookup_statement","SELECT gloss, source, description, url FROM signs WHERE id=$1")
+      @history_record_statement ||= @conn.prepare("history_record_statement","INSERT INTO signs_history (nick, word, success) VALUES ($1, $2, $3)")
+    rescue PG::SyntaxError
+      [false,"I have a headache. Not now honey."]
+    end
+
     def asl_lookup(word)
       return [false,"I don't know what sign you want"] if word.nil?
       word.strip.downcase!
-      conn = PG.connect(dbname: "kratsg")
-      conn.prepare("statement","SELECT id, gloss, source, description, url FROM signs WHERE gloss=$1")
-      res = conn.exec_prepared("statement", [word])
-
+      res = @conn.exec_prepared("asl_lookup_statement", [word])
       return [false,"I'm a work in progress. I do not know '%s' yet." % word] if res.count == 0
       # use this to sort sources (best -> worst)
       $sources = %w(aslu handspeak signingsavvy aslstemforum ritsciencesigns aslpro)
@@ -37,18 +55,11 @@ bot = Cinch::Bot.new do
          "%s <%s> (%d)" % [row["source"], shorten(row["url"]), row["id"]]
       end
       [true, message*" | "]
-
-    rescue PG::ConnectionBad
-      [false,"My brain is disconnected."]
-    rescue PG::SyntaxError
-      [false,"I have a headache. Not now honey."]
     end
     
     def info_lookup(id)
       return [false,"I don't know what sign you want"] if id.nil?
-      conn = PG.connect(dbname: "kratsg")
-      conn.prepare("statement","SELECT gloss, source, description, url FROM signs WHERE id=$1")
-      res = conn.exec_prepared("statement", [id])
+      res = @conn.exec_prepared("info_lookup_statement", [id])
 
       return [false,"I cannot seem to find the id '%d' yet. Are you sure it's right?" % id] if res.count == 0
       # use this to sort sources (best -> worst)
@@ -57,11 +68,6 @@ bot = Cinch::Bot.new do
         row.map{|k,v| "%s: %s" % [k,v]}*", "
       end
       [true, message*""]
-
-    rescue PG::ConnectionBad
-      [false,"My brain is disconnected."]
-    rescue PG::SyntaxError
-      [false,"I have a headache. Not now honey."]
     end
 
     def shorten(url)
@@ -69,6 +75,29 @@ bot = Cinch::Bot.new do
       (response.code == 200 ? response.body : url)
     end
 
+    def history_record(nick, word, success)
+      res = @conn.exec_prepared("history_record_statement", [nick, word, success])
+      return [true, res]
+    end
+
+    def history_vomit
+      res = @conn.exec("SELECT nick, word FROM signs_history ORDER BY timestamp_requested DESC LIMIT 10")
+      response = res.map do |row|
+        "%s (%s)" % [row["word"], row["nick"]]
+      end
+      response*" | "
+    end
+
+    def history_total
+      res1 = @conn.exec("SELECT COUNT(*) as total FROM signs_history")
+      res2 = @conn.exec("SELECT timestamp_requested as timestamp FROM signs_history ORDER BY timestamp_requested DESC LIMIT 1")
+      [res1[0]["total"], Time.new(res2[0]["timestamp"]).strftime("%m/%d/%Y, %I:%M%p")]
+    end
+
+  end
+
+  on :connect do
+    p conn
   end
 
   on :message, /^(!|handsy(?::)? |)shorten url (.*)/ do |m, callee, url|
@@ -76,16 +105,19 @@ bot = Cinch::Bot.new do
     m.reply("%s: %s" % [m.user.nick, shorten(url)] )
   end
 
- on :message, /^(!|handsy(?::)? |)tell ([a-zA-Z0-9]+)(?: about)? the signs? for (.*)/ do |m, callee, u, word|
-    return if m.channel? and callee == ""
+  on :message, /^(!|handsy(?::)? |)tell ([a-zA-Z0-9]+)(?: about)? the signs? for (.*)/ do |m, callee, u, word|
+    return if m.channel? and callee == "" or word.nil?
     lookup_success, signs = asl_lookup word
+
     user = User(u)
     m.reply("Hey %s. The sign for '%s'. %s" % [User(user).nick, word, signs] ) if user.online? and lookup_success
     m.reply("Hey %s. %s" % [m.user.nick, signs]) if user.online? and not lookup_success
     m.reply("That user is not online.") unless user.online?
+ 
+    history_record(m.user.nick, word, lookup_success)
   end
 
-  on :message, /^(!|handsy(?::)? |)(?:(?!tell).*?)(?:signs? for )([^?!.,"'\s]+)(?: and )?([^?!.,"'\s]+)?/ do |m, callee, word1, word2|
+  on :message, /^(!|handsy(?::)? |)(?:(?!tell).*?)(?:signs? (?:for )?)([^?!.,"'\s]+)(?: and )?([^?!.,"'\s]+)?/ do |m, callee, word1, word2|
     return if m.channel? and callee == ""
     lookup_success1, signs1 = asl_lookup word1
     lookup_success2, signs2 = asl_lookup word2
@@ -100,6 +132,9 @@ bot = Cinch::Bot.new do
     m.reply("%s, also %s '%s'. %s" % [m.user.nick, nice_response, word2, signs2] ) if lookup_success2
     m.reply("%s, %s" % [m.user.nick, signs1]) unless lookup_success1
     m.reply("%s, %s" % [m.user.nick, signs2]) unless lookup_success2 or word2.nil?
+
+    history_record(m.user.nick, word1, lookup_success1) unless word1.nil?
+    history_record(m.user.nick, word2, lookup_success2) unless word2.nil?
   end
 
   on :message, /^(!|handsy(?::)? |)\?$/ do |m, callee|
@@ -107,13 +142,22 @@ bot = Cinch::Bot.new do
     m.reply("You can ask me about the sign for baz. You can also ask me about the sign for foo and bar!")
   end
 
-  on :message, /^(!|handsy(?::)? |)(?:.*?)(?:info (?:for|on) )(\d+)/ do |m, callee, identifier|
+  on :message, /^(!|handsy(?::)? |)(?:.*?)(?:info (?:for |on |))(\d+)/ do |m, callee, identifier|
     return if m.channel? and callee == ""
     lookup_success, info = info_lookup identifier
     m.reply("%s, here's the info you requested! %s" % [m.user.nick, info]) if lookup_success
     m.reply("%s, I had an issue. %s" % [m.user.nick, info]) unless lookup_success
   end
 
+  on :message, /^how (?:do i|to) sign (\w+)/i do |m, word|
+    m.reply("Just prefix how to sign something with an exclamation mark, like so: !What is the sign for %s?" % word)
+  end
+
+  on :message, /^(!|handsy(?::)? |)history( count)?$/ do |m, callee, total|
+    return if m.channel? and callee == ""
+    m.reply("Here are 10 most recent calls. %s" % history_vomit) if total.nil?
+    m.reply("There have been %d lookups since %s." % history_total) unless total.nil?
+  end
 end
 
 bot.start

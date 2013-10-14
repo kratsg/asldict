@@ -105,36 +105,27 @@ bot = Cinch::Bot.new do
     m.reply("%s: %s" % [m.user.nick, shorten(url)] )
   end
 
-  on :message, /^(!|handsy(?::)? |)tell ([a-zA-Z0-9]+)(?: about)? the signs? for (.*)/ do |m, callee, u, word|
-    return if m.channel? and callee == "" or word.nil?
+#  on :message, /^(!|handsy(?::)? |)tell ([a-zA-Z0-9_]+)(?: about)? the signs? for (.*)/ do |m, callee, u, word|
+#    return if m.channel? and callee == "" or word.nil?
+#    lookup_success, signs = asl_lookup word
+#
+#    user = User(u)
+#    m.reply("Hey %s. The sign for '%s'. %s" % [User(user).nick, word, signs] ) if user.online? and lookup_success
+#    m.reply("Hey %s. %s" % [m.user.nick, signs]) if user.online? and not lookup_success
+#    m.reply("That user is not online.") unless user.online?
+# 
+#    history_record(m.user.nick, word, lookup_success)
+#  end
+
+  on :message, /^(!|handsy(?::)? |)(?:(?!tell).*?)(?:signs? (?:for )?)([^?!.,"']+)/ do |m, callee, word|
+    return if m.channel? and callee == ""
     lookup_success, signs = asl_lookup word
 
-    user = User(u)
-    m.reply("Hey %s. The sign for '%s'. %s" % [User(user).nick, word, signs] ) if user.online? and lookup_success
-    m.reply("Hey %s. %s" % [m.user.nick, signs]) if user.online? and not lookup_success
-    m.reply("That user is not online.") unless user.online?
- 
-    history_record(m.user.nick, word, lookup_success)
-  end
-
-  on :message, /^(!|handsy(?::)? |)(?:(?!tell).*?)(?:signs? (?:for )?)([^?!.,"'\s]+)(?: and )?([^?!.,"'\s]+)?/ do |m, callee, word1, word2|
-    return if m.channel? and callee == ""
-    lookup_success1, signs1 = asl_lookup word1
-    lookup_success2, signs2 = asl_lookup word2
-    if lookup_success2 and not lookup_success1 then
-      lookup_success1, lookup_success2 = lookup_success2, lookup_success1
-      signs1, signs2 = signs2, signs1
-      word1,  word2  = word2,  word1
-    end
-
     nice_response = ["you asked for","you asked about","here's what I found for","some signs for","I think I found something for","you wanted to know about","here's some info about"].sample
-    m.reply("%s, %s '%s'. %s" % [m.user.nick, nice_response, word1, signs1] ) if lookup_success1
-    m.reply("%s, also %s '%s'. %s" % [m.user.nick, nice_response, word2, signs2] ) if lookup_success2
-    m.reply("%s, %s" % [m.user.nick, signs1]) unless lookup_success1
-    m.reply("%s, %s" % [m.user.nick, signs2]) unless lookup_success2 or word2.nil?
+    m.reply("%s, %s '%s'. %s" % [m.user.nick, nice_response, word, signs] ) if lookup_success
+    m.reply("%s, %s" % [m.user.nick, signs]) unless lookup_success
 
-    history_record(m.user.nick, word1, lookup_success1) unless word1.nil?
-    history_record(m.user.nick, word2, lookup_success2) unless word2.nil?
+    history_record(m.user.nick, word, lookup_success) unless word.nil?
   end
 
   on :message, /^(!|handsy(?::)? |)\?$/ do |m, callee|

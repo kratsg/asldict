@@ -1,15 +1,23 @@
 require 'json'
 require 'pg'
+require 'upsert'
+require 'date'
+require 'time'
 
-@conn ||= PG.connect(dbname: "kratsg")
-@insert_statement ||= @conn.prepare("insert_statement","INSERT INTO signs (gloss, source, description, url) VALUES ($1, $2, $3, $4)")
 Dir.chdir 'SpreadTheSign'
-response = IO.foreach("all_words.txt") do |line|
-  l = JSON.parse(line)
-  l['flags'].each do |flag|
-    l['href'] = flag['href'] if ["American English","English"].include?(flag['title'])
-    l['has_english'] = true if ["American English","English"].include?(flag['title'])
+@conn ||= PG.connect(dbname: "kratsg")
+Upsert.batch(@conn, :signs) do |upsert|
+  IO.foreach("all_words.txt") do |line|
+    l = JSON.parse(line)
+    next unless (l['languages'] & %w(English American English)).present?
+    selector = {
+      gloss: l['gloss'],
+      description: l['description'],
+      source: "spreadthesign"
+    }
+    setter = {
+      url: "http://www.spreadthesign.com%s" % l['href'],
+    }
+    upsert.row(selector, setter)
   end
-  next unless l['has_english']
-  @conn.exec_prepared("insert_statement", [l['gloss'], 'spreadthesign', l['pos'], l['href']] )
 end

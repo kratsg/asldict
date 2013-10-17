@@ -22,8 +22,10 @@ Dir.chdir 'SpreadTheSign'
     @words += doc.css("div.list-row").map do |row|
       gloss = row.css(".caption").text
       languages = []
+      hrefs = {}
       flags = row.css(".flags a").map do |flag|
         languages.push(flag['title'])
+        hrefs[flag['title']] = flag['href']
         {
           href: flag['href'],
           title: flag['title'],
@@ -33,7 +35,7 @@ Dir.chdir 'SpreadTheSign'
         }
       end
       magnet = row.at_css(".videobox")['id'].gsub(/video/,"")
-      {gloss: gloss, flags: flags, magnet: magnet, pos: partOfSpeech, languages: languages}
+      {gloss: gloss, pos: partOfSpeech, hrefs: hrefs, magnet: magnet, languages: languages, flags: flags}
     end
     puts "\t\tDone!"
   end

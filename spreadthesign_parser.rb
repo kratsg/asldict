@@ -21,7 +21,9 @@ Dir.chdir 'SpreadTheSign'
     puts "\t\t- Parsed File"
     @words += doc.css("div.list-row").map do |row|
       gloss = row.css(".caption").text
+      languages = []
       flags = row.css(".flags a").map do |flag|
+        languages.push(flag['title'])
         {
           href: flag['href'],
           title: flag['title'],
@@ -31,7 +33,7 @@ Dir.chdir 'SpreadTheSign'
         }
       end
       magnet = row.at_css(".videobox")['id'].gsub(/video/,"")
-      {gloss: gloss, flags: flags, magnet: magnet, pos: partOfSpeech}
+      {gloss: gloss, flags: flags, magnet: magnet, pos: partOfSpeech, languages: languages}
     end
     puts "\t\tDone!"
   end

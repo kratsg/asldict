@@ -10,11 +10,8 @@ end
 
 Dir.chdir 'SpreadTheSign'
 ('a'..'z').each do |letter|
-  Dir.chdir letter
   puts "Opened up letter: %s" % letter
   @classFilter.each do |partOfSpeech|
-    Dir.mkdir partOfSpeech
-    Dir.chdir partOfSpeech
     puts "\tOpened up POS: %s" % partOfSpeech 
  
     #first step, make a request for page 1
@@ -31,11 +28,9 @@ Dir.chdir 'SpreadTheSign'
       end
     end
     if numPages >= 1 then
-      File.open('response.out','w+'){|f| f.write(response)}
+      File.open(('%s_%s_response.out' % [letter, partOfSpeech]),'w+'){|f| f.write(response)}
     end
     puts "\t\tDone!"
-    Dir.chdir '..'
   end
-  Dir.chdir '..'
 end
 Dir.chdir '..'

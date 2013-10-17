@@ -49,10 +49,10 @@ bot = Cinch::Bot.new do
       res = @conn.exec_prepared("asl_lookup_statement", [word])
       return [false,"I'm a work in progress. I do not know '%s' yet." % word] if res.count == 0
       # use this to sort sources (best -> worst)
-      $sources = %w(aslu handspeak signingsavvy aslstemforum ritsciencesigns aslpro)
+      $sources = %w(spreadthesign aslu handspeak signingsavvy aslstemforum ritsciencesigns aslpro)
       res = res.sort_by{|item| $sources.index(item["source"])}
       message = res.map do |row|
-         "%s <%s> (%d)" % [row["source"], shorten(row["url"]), row["id"]]
+         "%s <%s> (%d, %s)" % [row["source"], shorten(row["url"]), row["id"], row["description"]]
       end
       [true, message*" | "]
     end

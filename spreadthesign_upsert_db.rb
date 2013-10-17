@@ -10,10 +10,11 @@ Upsert.batch(@conn, :signs) do |upsert|
   IO.foreach("all_words.txt") do |line|
     l = JSON.parse(line)
     next unless (l['languages'].include?("English") or l['languages'].include?("American English"))
-    href = l['hrefs']['English'] || l['hrefs']['American English']
+    next if l['pos'] == 'all' #don't need to add it
+    href = l['hrefs']['American English'] || l['hrefs']['English']
     selector = {
       gloss: l['gloss'],
-      description: l['description'],
+      description: l['pos'],
       source: "spreadthesign"
     }
     setter = {

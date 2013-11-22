@@ -43,7 +43,13 @@ bot = Cinch::Bot.new do
       [false,"I have a headache. Not now honey."]
     end
 
+    def check_db_status()
+      return false if conn.kind_of?(Array) and conn.first == false
+      return true
+    end
+
     def asl_lookup(word)
+      return conn unless check_db_status
       return [false,"I don't know what sign you want"] if word.nil?
       word.strip.downcase!
       res = @conn.exec_prepared("asl_lookup_statement", [word])
@@ -58,6 +64,7 @@ bot = Cinch::Bot.new do
     end
     
     def info_lookup(id)
+      return conn unless check_db_status
       return [false,"I don't know what sign you want"] if id.nil?
       res = @conn.exec_prepared("info_lookup_statement", [id])
 
@@ -89,6 +96,7 @@ bot = Cinch::Bot.new do
     end
 
     def history_total
+      return conn unless check_db_status
       res1 = @conn.exec("SELECT COUNT(*) as total FROM signs_history")
       res2 = @conn.exec("SELECT timestamp_requested as timestamp FROM signs_history ORDER BY timestamp_requested DESC LIMIT 1")
       [res1[0]["total"], Time.new(res2[0]["timestamp"]).strftime("%m/%d/%Y, %I:%M%p")]

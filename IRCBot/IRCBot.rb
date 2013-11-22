@@ -37,7 +37,7 @@ bot = Cinch::Bot.new do
       [false,"My brain is disconnected."]
     end
 
-    def prepare_statement
+    def prepare_statements
       @asl_lookup_statement = @conn.prepare("asl_lookup_statement","SELECT id, gloss, source, description, url FROM signs WHERE gloss=$1")
       @info_lookup_statement = @conn.prepare("info_lookup_statement","SELECT gloss, source, description, url FROM signs WHERE id=$1")
       @history_record_statement = @conn.prepare("history_record_statement","INSERT INTO signs_history (nick, word, success) VALUES ($1, $2, $3)")

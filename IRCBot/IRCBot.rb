@@ -4,8 +4,6 @@ require 'httparty'
 require 'uri'
 require 'pg'
 
-print "HELLO WORLD"
-
 bot = Cinch::Bot.new do
   configure do |c|
     c.nick            = 'handsy'

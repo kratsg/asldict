@@ -28,7 +28,7 @@ bot = Cinch::Bot.new do
   helpers do
     def conn
       p "executing db connection"
-      @conn ||= PG.connect(dbname: "kratsg")
+      @conn ||= PG.connect(dbname: "handsy")
       prepare_statement
       @conn
     rescue PG::ConnectionBad
